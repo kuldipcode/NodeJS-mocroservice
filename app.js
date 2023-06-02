@@ -1,23 +1,20 @@
 require('dotenv').config()
 const dbConnect = require('./configs/db');
 const express = require('express');
+const {kafka} = require('./configs/kfk');
 const bodyParser = require('body-parser');
 const cors = require('cors');
-const {Kafka} = require('kafkajs');
-const massuserRoute = require('./routes/massusers');
 const usersRoute = require('./routes/users');
-const adminRoute = require('./routes/admin')
 const app = express();
-
-const kafka = new Kafka({
-    clientId: 'kafka-nodejs-starter',
-    brokers: ['localhost:9092'],
-    ssl: false
-  });
-  
-const consumer = kafka.consumer({ groupId: 'my-group' })
-
-
+const userStub = {
+    _id: '6479a43fe433071c792fc3b0',
+    firstname: 'Kuldipkumar',
+    lastname: 'Prajapati',
+    email: 'kuldip.code@gmail.com',
+    profileimage: 'pathtoURL',
+    password: 'tempPass',
+    mobileNo: 9979193449
+  }
 app.use(bodyParser.json());
 app.use(cors());
 app.get('/api',function(req, res){
@@ -25,17 +22,18 @@ app.get('/api',function(req, res){
     res.send('It Works')
 })
 
-app.use('/api/massuserUpload', massuserRoute);
 app.use('/api/user', usersRoute);
-app.use('/api/admin', adminRoute)
-
-app.listen(3000, async ()=>{
+app.listen(3001, async ()=>{
     await dbConnect.then(data=>{console.log(`DB Connected at:`)})
-    await consumer.connect()
+    
+const consumer = kafka.consumer({ groupId: 'my-group' })
+  await consumer.connect()
     await consumer.subscribe({ topics: ['userTopic'] })
     await consumer.run({ eachMessage: async ({ message }) => {
-       console.log(message.value.toString())
+       let userJsonStr = message.value.toString()
+       let user = JSON.parse(userJsonStr)
+       console.log(user);
     }})
     .catch(err=>{console.log(err)});
-    console.log("Server started at")
+    console.log("mass service started at")
 })
